@@ -212,7 +212,11 @@ $(GCC_BUILD_DIR2)/.installed: $(GCC_BUILD_DIR2)/.compiled
 
 gcc-configured: $(GCC_BUILD_DIR2)/.configured
 
+ifneq ($(strip $(FREETZ_BUILD_TOOLCHAIN_TARGET_ONLY)),y)
 gcc: uclibc-configured binutils gcc_initial uclibc $(GCC_BUILD_DIR2)/.installed
+else
+gcc: uclibc-configured binutils uclibc
+endif
 
 gcc-uninstall:
 	$(RM) $(call TOOLCHAIN_BINARIES_LIST,$(TARGET_TOOLCHAIN_STAGING_DIR)/usr,$(GCC_BINARIES_BIN),$(REAL_GNU_TARGET_NAME))
@@ -233,7 +237,11 @@ gcc-dirclean: gcc-clean
 #############################################################
 GCC_BUILD_DIR3:=$(TARGET_TOOLCHAIN_DIR)/gcc-$(GCC_VERSION)-target
 
+ifneq ($(strip $(FREETZ_BUILD_TOOLCHAIN_TARGET_ONLY)),y)
 $(GCC_BUILD_DIR3)/.configured: $(GCC_BUILD_DIR2)/.installed $(GCC_TARGET_PREREQ) | binutils_target
+else
+$(GCC_BUILD_DIR3)/.configured: $(GCC_DIR)/.unpacked $(GCC_TARGET_PREREQ) | binutils_target
+endif
 	mkdir -p $(GCC_BUILD_DIR3)
 	(cd $(GCC_BUILD_DIR3); $(RM) config.cache; \
 		$(TARGET_CONFIGURE_ENV) \
