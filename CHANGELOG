@@ -90,6 +90,8 @@ Latest changes:
     * squashfs-tools 3.4
     * squashfs-tools 4.3 (modified to support AVM-BE format)
     * WireGuard 0.0.20180420
+    * wfrog 0.8.2+svn953
+    * ws28xx master
     * xz 5.2.3
 
 - Updated tools and hooks:
