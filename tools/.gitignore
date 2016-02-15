@@ -3,6 +3,7 @@ avm-rle-*
 avm_kernel_config.extract
 avm_kernel_config.bin2asm
 blkid
+build
 bunzip2
 busybox
 bzcat
