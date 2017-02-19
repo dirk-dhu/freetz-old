@@ -1,0 +1,119 @@
+--- src/auth.c	2017-10-02 15:13:51.000000000 +0200
++++ src/auth.c	2018-03-10 23:02:05.152972358 +0100
+@@ -341,24 +341,60 @@
+ 		found = 1;
+ 		log_query(F_CONFIG | F_RRNAME, name, NULL, "<RR>"); 
+ 		if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, daemon->auth_ttl,
+-					NULL, txt->class, C_IN, "t", txt->len, txt->txt))
++					NULL, txt->class, C_IN, "t", txt->name, txt->len, txt->txt))
+ 		  anscount++;
+ 	      }
+ 	  }
+-      
+-      for (txt = daemon->txt; txt; txt = txt->next)
++      for (txt = daemon->txt; txt; txt = txt->next)
++       if (hostname_isequal(name, txt->name))
++         {
++           nxdomain = 0;
++           if (txt->class == C_IN)
++             {
++               found = 1;
++               log_query(F_CONFIG | F_RRNAME, name, NULL, "<RR>");
++               if (add_resource_record(header, limit, &trunc, 0, &ansp, daemon->auth_ttl,
++                                       NULL, T_TXT, C_IN, "t", txt->name, txt->len, txt->txt))
++                 anscount++;
++             }
++         }
++
++      for (txt = daemon->txt; txt; txt = txt->next) {
++    	  extern char acme[60];
++	      acme[16] = 0;
++	      strncat( acme, name, sizeof(acme)-16);
++	if (hostname_isequal(acme, txt->name))
++	  {
++	    nxdomain = 0;
++	    if (txt->class == C_IN)
++	      {
++		found = 1;
++		log_query(F_CONFIG | F_RRNAME, acme, NULL, "<RR>");
++	    /*if (add_resource_record(header, limit, &trunc, nameoffset, &ansp,
++				      daemon->auth_ttl, &nameoffset,
++				      T_CNAME, C_IN, "d", acme))
++		anscount++;*/
++		if (add_resource_record(header, limit, &trunc, 0, &ansp, daemon->auth_ttl,
++					NULL, T_TXT, C_IN, "t", txt->name, txt->len, txt->txt))
++		  anscount++;
++	      }
++	  }
++      }
++
++      for (txt = daemon->txt; txt; txt = txt->next) {
+ 	if (txt->class == C_IN && hostname_isequal(name, txt->name))
+ 	  {
+ 	    nxdomain = 0;
+ 	    if (qtype == T_TXT)
+ 	      {
+ 		found = 1;
+-		log_query(F_CONFIG | F_RRNAME, name, NULL, "<TXT>"); 
+-		if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, daemon->auth_ttl,
+-					NULL, T_TXT, C_IN, "t", txt->len, txt->txt))
++		log_query(F_CONFIG | F_RRNAME, name, NULL, "<TXT>");
++		if (add_resource_record(header, limit, &trunc, 0, &ansp, daemon->auth_ttl,
++					NULL, T_TXT, C_IN, "t", txt->name, txt->len, txt->txt))
+ 		  anscount++;
+ 	      }
+ 	  }
++      }
+ 
+        for (na = daemon->naptr; na; na = na->next)
+ 	 if (hostname_isequal(name, na->name))
+--- src/rfc1035.c	2017-10-02 15:13:51.000000000 +0200
++++ src/rfc1035.c	2018-03-10 22:39:36.684611088 +0100
+@@ -1241,6 +1241,7 @@
+     return daemon->max_ttl;
+ }
+   
++char acme[60] = {'_','a','c','m','e','-','c','h','a','l','l','e','n','g','e','.',0};
+ 
+ /* return zero if we can't answer from cache, or packet size if we can */
+ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,  
+@@ -1306,6 +1307,39 @@
+ 	  struct txt_record *t;
+ 	  for(t = daemon->txt; t ; t = t->next)
+ 	    {
++	      acme[16] = 0;
++	      strncat( acme, name, sizeof(acme)-16);
++	      if (t->class == qclass && hostname_isequal(acme, t->name))
++		{
++		  ans = 1;
++		  if (!dryrun)
++		    {
++		      unsigned long ttl = (daemon->local_ttl!=0)?daemon->local_ttl:daemon->auth_ttl;
++		      int ok = 1;
++		      log_query(F_CONFIG | F_RRNAME, acme, NULL, "<TXT>");
++#ifndef NO_ID
++		      /* Dynamically generate stat record */
++		      if (t->stat != 0)
++			{
++			  ttl = 0;
++			  if (!cache_make_stat(t))
++			    ok = 0;
++			}
++#endif
++		      if (ok && add_resource_record(header, limit, &trunc, nameoffset, &ansp,
++					      daemon->auth_ttl, &nameoffset,
++					      T_CNAME, C_IN, "d", acme))
++			anscount++;
++		      if (ok && add_resource_record(header, limit, &trunc, nameoffset, &ansp,
++						    ttl, NULL,
++						    T_TXT, t->class, "t", t->len, t->txt))
++			anscount++;
++
++		    }
++		}
++	    }
++	  for(t = daemon->txt; t ; t = t->next)
++	    {
+ 	      if (t->class == qclass && hostname_isequal(name, t->name))
+ 		{
+ 		  ans = 1;
